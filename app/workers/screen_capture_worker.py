@@ -1,19 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any, Tuple
-import numpy as np
+from typing import List, Optional, Dict
+
 import cv2
+import mss
+import numpy as np
 from PySide6 import QtCore
 
-import mss
-
+from app.pipeline import LaneDetectionPipeline
 from config import Config
-from perspective import PerspectiveTransformer
-from lane_detector import LaneDetector
-from renderer import LaneRenderer
-from image_processing import build_binary_mask
-# YOLO removed
 
 
 @dataclass
@@ -35,11 +31,12 @@ class MonitorInfo:
 def list_monitors() -> List[MonitorInfo]:
     monitors: List[MonitorInfo] = []
     with mss.mss() as sct:
-        # sct.monitors[0] is virtual bounding box; use 1..N as actual monitors
         for i, mon in enumerate(sct.monitors):
             if i == 0:
                 continue
-            monitors.append(MonitorInfo(index=i, left=mon["left"], top=mon["top"], width=mon["width"], height=mon["height"]))
+            monitors.append(
+                MonitorInfo(index=i, left=mon["left"], top=mon["top"], width=mon["width"], height=mon["height"])
+            )
     return monitors
 
 
@@ -57,10 +54,7 @@ class ScreenCaptureWorker(QtCore.QThread):
         self._reset_requested = False
         self._reset_lock = QtCore.QMutex()
         self._monitor_bbox: Optional[Dict[str, int]] = None
-        self.perspective = PerspectiveTransformer(self.config)
-        self.detector = LaneDetector(self.config)
-        self.renderer = LaneRenderer(self.config, self.perspective, self.detector)
-        # No YOLO
+        self.pipeline = LaneDetectionPipeline(self.config)
 
     def set_monitor_bbox(self, bbox: Dict[str, int]) -> None:
         self._monitor_bbox = bbox
@@ -72,20 +66,17 @@ class ScreenCaptureWorker(QtCore.QThread):
         self._pause = not self._pause
 
     def request_reset(self) -> None:
-        locker = QtCore.QMutexLocker(self._reset_lock)
-        self._reset_requested = True
-        del locker
+        with QtCore.QMutexLocker(self._reset_lock):
+            self._reset_requested = True
 
     def _apply_reset_if_needed(self) -> None:
         need_reset = False
-        locker = QtCore.QMutexLocker(self._reset_lock)
-        if self._reset_requested:
-            need_reset = True
-            self._reset_requested = False
-        del locker
+        with QtCore.QMutexLocker(self._reset_lock):
+            if self._reset_requested:
+                need_reset = True
+                self._reset_requested = False
         if need_reset:
-            self.perspective.reset()
-            self.detector.reset()
+            self.pipeline.reset()
 
     def run(self) -> None:
         if self._monitor_bbox is None:
@@ -97,22 +88,18 @@ class ScreenCaptureWorker(QtCore.QThread):
                 if self._pause:
                     self.msleep(20)
                     continue
+
                 self._apply_reset_if_needed()
+
                 img = sct.grab(self._monitor_bbox)
-                frame = np.array(img)  # BGRA
+                frame = np.array(img)
                 if frame.shape[2] == 4:
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
 
-                out_frame, debug = self.renderer.process_frame(frame, build_binary_mask)
-
-                # No YOLO overlay
-
+                out_frame, debug = self.pipeline.process_frame(frame)
                 self.frameReady.emit(out_frame)
-                self.debugBinaryReady.emit(debug["binary"])  # type: ignore[arg-type]
-                self.debugWarpReady.emit(debug["warped_binary"])  # type: ignore[arg-type]
+                self.debugBinaryReady.emit(debug["binary"])
+                self.debugWarpReady.emit(debug["warped_binary"])
 
-                # Limit FPS ~30
                 self.msleep(15)
         self.finished.emit()
-
-
