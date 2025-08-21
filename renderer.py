@@ -35,9 +35,16 @@ class LaneRenderer:
         overlay_alpha = self.config.draw.overlay_alpha
         out = cv2.addWeighted(frame_bgr, 1.0, unwarped_overlay, overlay_alpha, 0)
 
+        # Optional: overlay binary edges for visibility
+        if self.config.draw.show_binary_overlay:
+            bin_color = np.zeros_like(frame_bgr)
+            bin_color[binary > 0] = self.config.draw.binary_overlay_color_bgr
+            out = cv2.addWeighted(out, 1.0, bin_color, self.config.draw.binary_overlay_alpha, 0)
+
         # 7) Steering and pose estimation
         pose = self.detector.estimate_vehicle_pose(warped_binary, left_fit, right_fit)
         out = self._draw_steering(out, pose)
+        out = self._draw_hud(out, pose)
 
         debug = {
             "binary": binary,
@@ -86,6 +93,74 @@ class LaneRenderer:
         # Texts
         cv2.putText(canvas, f"Steer: {pred_deg:+.1f} deg", (bar_x, bar_y + 28), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (220, 220, 220), 1, cv2.LINE_AA)
         cv2.putText(canvas, f"Offset: {offset_m:+.2f} m", (bar_x, bar_y + 46), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (220, 220, 220), 1, cv2.LINE_AA)
+
+        return canvas
+
+    def _draw_hud(self, frame_bgr: np.ndarray, pose: dict) -> np.ndarray:
+        if not self.config.draw.show_hud_panel:
+            return frame_bgr
+        h, w = frame_bgr.shape[:2]
+        canvas = frame_bgr.copy()
+
+        # Panel rect on left
+        panel_w = int(w * 0.28)
+        panel_h = int(h * 0.36)
+        x0, y0 = int(w * 0.01), int(h * 0.05)
+        x1, y1 = x0 + panel_w, y0 + panel_h
+
+        panel = canvas[y0:y1, x0:x1].copy()
+        color = np.array(self.config.draw.hud_panel_color_bgr, dtype=np.uint8)
+        overlay = np.full_like(panel, color)
+        alpha = self.config.draw.hud_panel_alpha
+        panel = cv2.addWeighted(panel, 1 - alpha, overlay, alpha, 0)
+        canvas[y0:y1, x0:x1] = panel
+        cv2.rectangle(canvas, (x0, y0), (x1, y1), self.config.draw.hud_panel_border_color_bgr, 2)
+
+        # Simple road sign (diamond with right arrow based on curvature sign)
+        sign_size = int(min(panel_w, panel_h) * 0.35)
+        sign_cx, sign_cy = x0 + sign_size, y0 + sign_size
+        sign_pts = np.array([
+            [sign_cx, sign_cy - sign_size // 2],
+            [sign_cx + sign_size // 2, sign_cy],
+            [sign_cx, sign_cy + sign_size // 2],
+            [sign_cx - sign_size // 2, sign_cy],
+        ], dtype=np.int32)
+        cv2.fillPoly(canvas, [sign_pts], (0, 220, 255))
+        cv2.polylines(canvas, [sign_pts], True, (0, 0, 0), 2)
+        # Arrow
+        curvature_inv = float(pose.get("curvature_inv", 0.0))
+        right_turn = curvature_inv >= 0
+        arr_len = int(sign_size * 0.35)
+        arr_th = 4
+        if right_turn:
+            cv2.arrowedLine(canvas, (sign_cx - arr_len // 2, sign_cy + arr_len // 4), (sign_cx + arr_len // 2, sign_cy - arr_len // 4), (0, 0, 0), arr_th, tipLength=0.4)
+        else:
+            cv2.arrowedLine(canvas, (sign_cx + arr_len // 2, sign_cy + arr_len // 4), (sign_cx - arr_len // 2, sign_cy - arr_len // 4), (0, 0, 0), arr_th, tipLength=0.4)
+
+        # Text metrics
+        curvature_radius_m = (1.0 / max(abs(curvature_inv), 1e-6)) if curvature_inv != 0 else 0.0
+        direction = "Right Curve Ahead" if right_turn else "Left Curve Ahead"
+        offset_m = float(pose.get("lateral_offset_m", 0.0))
+        good = abs(offset_m) <= self.config.draw.hud_good_offset_m
+
+        # Labels
+        def put(text: str, x: int, y: int, scale: float = 0.9, color=(240, 240, 240), thick: int = 2):
+            cv2.putText(canvas, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thick, cv2.LINE_AA)
+
+        tx = x0 + int(panel_w * 0.04)
+        ty = y0 + int(panel_h * 0.55)
+        put(direction, tx, ty, 0.9)
+        ty += int(panel_h * 0.10)
+        put(f"Curvature = {int(curvature_radius_m)} m", tx, ty, 0.9)
+
+        # Status line
+        ty += int(panel_h * 0.16)
+        status = "Good Lane Keeping" if good else "Correct Lane Position"
+        put(status, tx, ty, 1.0, (50, 255, 80) if good else (0, 200, 255), 3)
+
+        # Offset text
+        ty += int(panel_h * 0.14)
+        put(f"Vehicle is {abs(offset_m):.2f} m {'right' if offset_m>0 else 'left' if offset_m<0 else 'from'} center", tx, ty, 0.8)
 
         return canvas
 

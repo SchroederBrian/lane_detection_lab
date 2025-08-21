@@ -14,6 +14,7 @@ from image_processing import build_binary_mask
 from perspective import PerspectiveTransformer
 from lane_detector import LaneDetector
 from renderer import LaneRenderer
+from screen_capture import ScreenCaptureWorker, list_monitors
 
 
 def bgr_to_qimage(frame_bgr: np.ndarray) -> QtGui.QImage:
@@ -328,6 +329,7 @@ class VideoWorker(QtCore.QThread):
         self.perspective = PerspectiveTransformer(self.config)
         self.detector = LaneDetector(self.config)
         self.renderer = LaneRenderer(self.config, self.perspective, self.detector)
+        # No YOLO
 
     def set_video(self, path: str) -> None:
         self.video_path = path
@@ -399,6 +401,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.config = get_default_config()
         self.worker = VideoWorker(self.config)
+        self.screenWorker = ScreenCaptureWorker(self.config)
 
         self._init_ui()
         self._connect_signals()
@@ -428,6 +431,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.editModeCombo.addItems(["ROI", "Bird's-Eye Src"])
         self.hideWarpButton = QtWidgets.QPushButton("Hide Bird's-Eye")
         self.hideWarpButton.setCheckable(True)
+        # Source controls
+        self.sourceCombo = QtWidgets.QComboBox()
+        self.sourceCombo.addItems(["Video File", "Screen Capture"])
+        self.monitorCombo = QtWidgets.QComboBox()
+        self._refresh_monitors()
 
         self.cannyLow = self._make_slider(0, 255, self.config.canny.low_threshold, "Canny Low")
         self.cannyHigh = self._make_slider(0, 255, self.config.canny.high_threshold, "Canny High")
@@ -438,6 +446,8 @@ class MainWindow(QtWidgets.QMainWindow):
         controlBar.addWidget(self.openButton)
         controlBar.addWidget(self.playButton)
         controlBar.addWidget(self.stopButton)
+        controlBar.addWidget(self.sourceCombo)
+        controlBar.addWidget(self.monitorCombo)
         controlBar.addWidget(self.editModeCombo)
         controlBar.addWidget(self.hideWarpButton)
         controlBar.addStretch(1)
@@ -507,6 +517,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hideRoiButton.toggled.connect(self.handle_hide_roi)
         self.hideWarpButton.toggled.connect(self.handle_hide_warp)
         self.editModeCombo.currentIndexChanged.connect(self.handle_edit_mode)
+        self.sourceCombo.currentIndexChanged.connect(self.handle_source_changed)
+        self.monitorCombo.currentIndexChanged.connect(self.handle_monitor_changed)
         # Prompt for auto-ROI on load
         QtCore.QTimer.singleShot(300, self.prompt_auto_roi)
 
@@ -519,6 +531,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.worker.debugBinaryReady.connect(self.update_binary)
         self.worker.debugWarpReady.connect(self.update_warp)
         self.worker.finished.connect(self.on_finished)
+        # Screen worker signals
+        self.screenWorker.frameReady.connect(self.update_preview)
+        self.screenWorker.debugBinaryReady.connect(self.update_binary)
+        self.screenWorker.debugWarpReady.connect(self.update_warp)
+        self.screenWorker.finished.connect(self.on_finished)
 
         self.previewLabel.requestReset.connect(self.schedule_reset)
 
@@ -533,14 +550,28 @@ class MainWindow(QtWidgets.QMainWindow):
         self.prompt_auto_roi()
 
     def handle_play_pause(self) -> None:
-        if not self.worker.isRunning():
-            self.worker.start()
+        source = self.sourceCombo.currentText()
+        if source == "Video File":
+            if not self.worker.isRunning():
+                self.worker.start()
+            else:
+                self.worker.toggle_pause()
         else:
-            self.worker.toggle_pause()
+            if not self.screenWorker.isRunning():
+                data = self.monitorCombo.currentData()
+                if data is not None:
+                    self.screenWorker.set_monitor_bbox(data.bbox)
+                self.screenWorker.start()
+            else:
+                self.screenWorker.toggle_pause()
 
     def handle_stop(self) -> None:
         if self.worker.isRunning():
             self.worker.stop()
+            self.worker.wait(500)
+        if self.screenWorker.isRunning():
+            self.screenWorker.stop()
+            self.screenWorker.wait(500)
 
     def handle_hide_roi(self, hidden: bool) -> None:
         self.previewLabel.set_roi_overlay_visible(not hidden)
@@ -551,6 +582,19 @@ class MainWindow(QtWidgets.QMainWindow):
     def handle_edit_mode(self, index: int) -> None:
         mode = "roi" if index == 0 else "warp"
         self.previewLabel.set_edit_mode(mode)
+
+    def handle_source_changed(self, index: int) -> None:
+        # Stop current worker when switching source
+        self.handle_stop()
+        if self.sourceCombo.currentText() == "Screen Capture":
+            self._refresh_monitors()
+
+    def handle_monitor_changed(self, index: int) -> None:
+        # Apply new monitor if running
+        if self.screenWorker.isRunning():
+            data = self.monitorCombo.currentData()
+            if data is not None:
+                self.screenWorker.set_monitor_bbox(data.bbox)
 
     def prompt_auto_roi(self) -> None:
         # Ask user if they'd like to compute a dynamic ROI using the current frame
@@ -563,18 +607,46 @@ class MainWindow(QtWidgets.QMainWindow):
         if ret == QtWidgets.QMessageBox.StandardButton.Yes:
             self.compute_auto_roi()
 
+    def _refresh_monitors(self) -> None:
+        self.monitorCombo.clear()
+        try:
+            mons = list_monitors()
+        except Exception:
+            mons = []
+        if not mons:
+            self.monitorCombo.addItem("No monitors", userData=None)
+            return
+        for m in mons:
+            self.monitorCombo.addItem(m.label(), userData=m)
+        self.monitorCombo.setCurrentIndex(0)
+
     def compute_auto_roi(self) -> None:
         # Grab a single frame to compute ROI
         if not self.worker.video_path:
             return
         cap = cv2.VideoCapture(self.worker.video_path)
+        if not cap.isOpened():
+            return
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        mid = max(0, total // 2)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, mid)
         ok, frame = cap.read()
         cap.release()
         if not ok:
             return
 
-        # Build a mask without ROI to analyze lane-like structure globally
-        mask = build_binary_mask(frame, self.config, apply_roi=False)
+        # Optionally refine with YOLO12 segmentation: remove vehicles from lane mask
+        union = None
+        # YOLO seg removed
+        union = None
+
+        base_mask = build_binary_mask(frame, self.config, apply_roi=False)
+        mask = base_mask
+        if union is not None:
+            # Ensure union is 2D uint8 same size
+            # Keep only lanes outside union (not used now)
+            inv = cv2.bitwise_not(union)
+            mask = cv2.bitwise_and(base_mask, inv)
         # Use histogram peaks and Canny edges to find a plausible trapezoid
         h, w = mask.shape[:2]
         # Bottom band histogram
@@ -711,7 +783,15 @@ def main() -> None:
     app = QtWidgets.QApplication(sys.argv)
     win = MainWindow()
     win.show()
-    sys.exit(app.exec())
+    rc = app.exec()
+    # Ensure thread shutdown if window closed without pressing Stop
+    if win.worker.isRunning():
+        win.worker.stop()
+        win.worker.wait(1000)
+    if win.screenWorker.isRunning():
+        win.screenWorker.stop()
+        win.screenWorker.wait(1000)
+    sys.exit(rc)
 
 
 if __name__ == "__main__":

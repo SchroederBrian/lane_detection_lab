@@ -75,6 +75,15 @@ class DrawConfig:
     lane_color_bgr: Tuple[int, int, int] = (0, 255, 0)
     overlay_alpha: float = 0.3
     show_debug_windows: bool = True
+    show_binary_overlay: bool = False
+    binary_overlay_alpha: float = 0.35
+    binary_overlay_color_bgr: Tuple[int, int, int] = (0, 200, 0)
+    # HUD panel like the sample image
+    show_hud_panel: bool = True
+    hud_panel_alpha: float = 0.35
+    hud_panel_color_bgr: Tuple[int, int, int] = (50, 80, 180)  # bluish
+    hud_panel_border_color_bgr: Tuple[int, int, int] = (255, 255, 255)
+    hud_good_offset_m: float = 0.25
 
 
 @dataclass

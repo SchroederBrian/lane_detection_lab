@@ -1,10 +1,10 @@
 {
   "roi": {
-    "top_y_pct": 0.6285714285714286,
-    "bottom_y_pct": 0.9071428571428571,
-    "top_left_x_pct": 0.45710455764075064,
-    "top_right_x_pct": 0.5857908847184986,
-    "bottom_left_x_pct": 0.10991957104557641,
-    "bottom_right_x_pct": 0.9222520107238606
+    "top_y_pct": 0.5523809523809524,
+    "bottom_y_pct": 0.8523809523809525,
+    "top_left_x_pct": 0.4343163538873994,
+    "top_right_x_pct": 0.593833780160858,
+    "bottom_left_x_pct": 0.0,
+    "bottom_right_x_pct": 0.9994791666666667
   }
 }
