@@ -1,3 +1,13 @@
+"""
+This module defines the configuration structure for the lane detection application.
+
+It uses dataclasses to create a hierarchical and type-annotated configuration,
+which can be easily serialized and deserialized. The main `Config` class aggregates
+all the specific configuration sections.
+
+The configuration is managed by the `ConfigManager` class in `config_manager.py`,
+which handles loading from and saving to a YAML file, as well as profile management.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -140,9 +150,5 @@ class Config:
         self.roi_top_left_x_pct = float(np.clip(tl[0] / w, 0.0, 1.0))
         self.roi_bottom_y_pct = float(np.clip(bl[1] / h, 0.0, 1.0))
         self.roi_top_y_pct = float(np.clip(tl[1] / h, 0.0, 1.0))
-
-
-def get_default_config() -> Config:
-    return Config()
 
 

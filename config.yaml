@@ -1,0 +1,159 @@
+active_profile: default
+profiles:
+  default:
+    canny:
+      gaussian_kernel_size: 5
+      high_threshold: 168
+      low_threshold: 50
+    color:
+      white_hls_lower:
+      - 0
+      - 200
+      - 0
+      white_hls_upper:
+      - 255
+      - 255
+      - 40
+      yellow_hsv_lower:
+      - 15
+      - 80
+      - 80
+      yellow_hsv_upper:
+      - 35
+      - 255
+      - 255
+    draw:
+      binary_overlay_alpha: 0.35
+      binary_overlay_color_bgr:
+      - 0
+      - 200
+      - 0
+      hud_good_offset_m: 0.25
+      hud_panel_alpha: 0.35
+      hud_panel_border_color_bgr:
+      - 255
+      - 255
+      - 255
+      hud_panel_color_bgr:
+      - 50
+      - 80
+      - 180
+      lane_color_bgr:
+      - 0
+      - 255
+      - 0
+      overlay_alpha: 0.3
+      show_binary_overlay: false
+      show_debug_windows: true
+      show_hud_panel: true
+    kalman:
+      initial_variance: 1.0
+      measurement_variance: 0.01
+      process_variance: 0.0001
+    metric:
+      xm_per_px: 0.005285714285714286
+      ym_per_px: 0.041666666666666664
+    perspective:
+      dst_bottom_y_pct: 0.98
+      dst_left_x_pct: 0.2
+      dst_right_x_pct: 0.8
+      dst_top_y_pct: 0.02
+      src_bottom_left_x_pct: 0.1863270777479893
+      src_bottom_right_x_pct: 0.9
+      src_bottom_y_pct: 0.8928571428571428
+      src_top_left_x_pct: 0.4450402144772118
+      src_top_right_x_pct: 0.6085790884718498
+      src_top_y_pct: 0.6285714285714286
+    roi_bottom_left_x_pct: 0.1836461126005362
+    roi_bottom_right_x_pct: 0.8994638069705093
+    roi_bottom_y_pct: 0.8952380952380952
+    roi_top_left_x_pct: 0.44906166219839144
+    roi_top_right_x_pct: 0.6032171581769437
+    roi_top_y_pct: 0.6285714285714286
+    sliding:
+      margin: 20
+      minpix: 10
+      num_windows: 9
+    steering:
+      gain_curvature: 1200.0
+      gain_offset: 10.0
+      max_steering_deg: 45.0
+  test1:
+    canny:
+      gaussian_kernel_size: 5
+      high_threshold: 150
+      low_threshold: 50
+    color:
+      white_hls_lower:
+      - 0
+      - 200
+      - 0
+      white_hls_upper:
+      - 255
+      - 255
+      - 40
+      yellow_hsv_lower:
+      - 15
+      - 80
+      - 80
+      yellow_hsv_upper:
+      - 35
+      - 255
+      - 255
+    draw:
+      binary_overlay_alpha: 0.35
+      binary_overlay_color_bgr:
+      - 0
+      - 200
+      - 0
+      hud_good_offset_m: 0.25
+      hud_panel_alpha: 0.35
+      hud_panel_border_color_bgr:
+      - 255
+      - 255
+      - 255
+      hud_panel_color_bgr:
+      - 50
+      - 80
+      - 180
+      lane_color_bgr:
+      - 0
+      - 255
+      - 0
+      overlay_alpha: 0.3
+      show_binary_overlay: false
+      show_debug_windows: true
+      show_hud_panel: true
+    kalman:
+      initial_variance: 1.0
+      measurement_variance: 0.01
+      process_variance: 0.0001
+    metric:
+      xm_per_px: 0.005285714285714286
+      ym_per_px: 0.041666666666666664
+    perspective:
+      dst_bottom_y_pct: 0.98
+      dst_left_x_pct: 0.2
+      dst_right_x_pct: 0.8
+      dst_top_y_pct: 0.02
+      src_bottom_left_x_pct: 0.1554959785522788
+      src_bottom_right_x_pct: 0.9
+      src_bottom_y_pct: 0.9095238095238094
+      src_top_left_x_pct: 0.4463806970509383
+      src_top_right_x_pct: 0.5911528150134048
+      src_top_y_pct: 0.6214285714285713
+    roi_bottom_left_x_pct: 0.1554959785522788
+    roi_bottom_right_x_pct: 0.9
+    roi_bottom_y_pct: 0.9071428571428571
+    roi_top_left_x_pct: 0.4450402144772118
+    roi_top_right_x_pct: 0.5911528150134048
+    roi_top_y_pct: 0.6238095238095238
+    sliding:
+      margin: 80
+      minpix: 40
+      num_windows: 9
+    steering:
+      gain_curvature: 1200.0
+      gain_offset: 10.0
+      max_steering_deg: 45.0
+version: '1.0'

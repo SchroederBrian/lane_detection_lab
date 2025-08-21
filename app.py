@@ -1,10 +1,11 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 import argparse
 from typing import Optional
 import cv2
 
-from config import get_default_config
+from config_manager import ConfigManager
 from image_processing import build_binary_mask
 from perspective import PerspectiveTransformer
 from lane_detector import LaneDetector
@@ -15,12 +16,35 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Lane detection with Sliding Window + Polyfit + Kalman")
     parser.add_argument("--video", required=True, help="Path to input video file")
     parser.add_argument("--save", default=None, help="Optional path to save output video")
-    parser.add_argument("--no-debug", action="store_true", help="Disable debug windows")
-    args = parser.parse_args()
+    parser.add_argument("--profile", default="default", help="Configuration profile to use")
+    # All other arguments are treated as config overrides
+    args, unknown = parser.parse_known_args()
 
-    config = get_default_config()
-    if args.no_debug:
-        config.draw.show_debug_windows = False
+    config_manager = ConfigManager()
+    
+    # Set profile
+    config_manager.set_active_profile(args.profile)
+    config = config_manager.get_active_config()
+
+    # Handle config overrides
+    for arg in unknown:
+        if arg.startswith("--"):
+            try:
+                key, value = arg[2:].split("=")
+                keys = key.split(".")
+                obj = config
+                for k in keys[:-1]:
+                    obj = getattr(obj, k)
+                
+                field_type = type(getattr(obj, keys[-1]))
+                if field_type == bool:
+                    setattr(obj, keys[-1], value.lower() in ("true", "1", "yes"))
+                else:
+                    setattr(obj, keys[-1], field_type(value))
+                
+            except Exception as e:
+                print(f"Warning: Could not parse override argument '{arg}': {e}")
+
 
     cap = cv2.VideoCapture(args.video)
     if not cap.isOpened():

@@ -1,0 +1,106 @@
+/* styles.qss */
+
+QWidget {
+    background-color: #2c313c;
+    color: #f0f0f0;
+    font-family: "Segoe UI", Frutiger, "Frutiger Linotype", "Dejavu Sans", "Helvetica Neue", Arial, sans-serif;
+    font-size: 10pt;
+}
+
+QMainWindow {
+    background-color: #2c313c;
+}
+
+QGroupBox {
+    background-color: #353b48;
+    border: 1px solid #4a5160;
+    border-radius: 6px;
+    margin-top: 6px;
+    padding: 10px 5px 5px 5px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top center;
+    padding: 0 10px;
+    background-color: #353b48;
+    color: #ff8c00; /* Accent color for titles */
+    font-weight: bold;
+}
+
+QLabel {
+    color: #f0f0f0;
+    background-color: transparent;
+}
+
+QPushButton {
+    background-color: #4a5160;
+    color: #f0f0f0;
+    border: 1px solid #5a6170;
+    border-radius: 4px;
+    padding: 6px 12px;
+    min-height: 16px;
+    min-width: 60px;
+}
+
+QPushButton:hover {
+    background-color: #5a6170;
+    border-color: #6a7180;
+}
+
+QPushButton:pressed {
+    background-color: #ff8c00;
+    color: #2c313c;
+    border-color: #ff8c00;
+}
+
+QPushButton:checkable[checked=true] {
+    background-color: #ff8c00;
+    color: #2c313c;
+    border-color: #e07b00;
+}
+
+QComboBox {
+    background-color: #4a5160;
+    border: 1px solid #5a6170;
+    border-radius: 4px;
+    padding: 4px;
+    min-height: 20px;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left: 1px solid #5a6170;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #4a5160;
+    border: 1px solid #5a6170;
+    selection-background-color: #ff8c00;
+}
+
+QSlider::groove:horizontal {
+    border: 1px solid #4a5160;
+    height: 4px;
+    background: #3e4451;
+    margin: 2px 0;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background: #ff8c00;
+    border: 1px solid #ff8c00;
+    width: 14px;
+    margin: -6px 0; /* handle is placed centered on the groove */
+    border-radius: 7px;
+}
+
+QSlider::handle:horizontal:hover {
+    background: #ffa500;
+}
+
+QMessageBox {
+    background-color: #353b48;
+}
