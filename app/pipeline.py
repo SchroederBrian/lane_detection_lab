@@ -18,8 +18,8 @@ class LaneDetectionPipeline:
         self.detector = LaneDetector(self.config)
         self.renderer = LaneRenderer(self.config, self.perspective, self.detector)
 
-    def process_frame(self, frame: np.ndarray) -> tuple[np.ndarray, Dict[str, Any]]:
-        return self.renderer.process_frame(frame, build_binary_mask)
+    def process_frame(self, frame: np.ndarray, fps: float = 0.0) -> tuple[np.ndarray, Dict[str, Any]]:
+        return self.renderer.process_frame(frame, build_binary_mask, fps)
 
     def reset(self) -> None:
         self.perspective.reset()

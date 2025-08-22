@@ -15,7 +15,7 @@ class LaneRenderer:
         self.perspective = perspective
         self.detector = detector
 
-    def process_frame(self, frame_bgr: np.ndarray, binary_builder) -> Tuple[np.ndarray, dict]:
+    def process_frame(self, frame_bgr: np.ndarray, binary_builder, fps: float = 0.0) -> Tuple[np.ndarray, dict]:
         # 1) Binary mask (apply ROI first to constrain detection strictly inside ROI)
         binary = binary_builder(frame_bgr, self.config, apply_roi=True)
 
@@ -44,7 +44,7 @@ class LaneRenderer:
         # 7) Steering and pose estimation
         pose = self.detector.estimate_vehicle_pose(warped_binary, left_fit, right_fit)
         out = self._draw_steering(out, pose)
-        out = self._draw_hud(out, pose)
+        out = self._draw_hud(out, pose, fps)
 
         debug = {
             "binary": binary,
@@ -96,7 +96,7 @@ class LaneRenderer:
 
         return canvas
 
-    def _draw_hud(self, frame_bgr: np.ndarray, pose: dict) -> np.ndarray:
+    def _draw_hud(self, frame_bgr: np.ndarray, pose: dict, fps: float) -> np.ndarray:
         if not self.config.draw.show_hud_panel:
             return frame_bgr
         h, w = frame_bgr.shape[:2]
@@ -161,6 +161,10 @@ class LaneRenderer:
         # Offset text
         ty += int(panel_h * 0.14)
         put(f"Vehicle is {abs(offset_m):.2f} m {'right' if offset_m>0 else 'left' if offset_m<0 else 'from'} center", tx, ty, 0.8)
+
+        # Add FPS
+        ty += int(panel_h * 0.14)  # After offset text
+        put(f"FPS: {fps:.1f}", tx, ty, 0.8)
 
         return canvas
 

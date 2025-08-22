@@ -1,0 +1,18 @@
+{
+  "roi": {
+    "top_y_pct": 0.60625,
+    "bottom_y_pct": 0.95625,
+    "top_left_x_pct": 0.5087924970691676,
+    "top_right_x_pct": 0.5873388042203986,
+    "bottom_left_x_pct": 0.264947245017585,
+    "bottom_right_x_pct": 0.8698710433763189
+  },
+  "warp": {
+    "src_top_y_pct": 0.6041666666666666,
+    "src_bottom_y_pct": 0.95625,
+    "src_top_left_x_pct": 0.5064478311840562,
+    "src_top_right_x_pct": 0.593200468933177,
+    "src_bottom_left_x_pct": 0.26143024618991795,
+    "src_bottom_right_x_pct": 0.873388042203986
+  }
+}

@@ -12,13 +12,17 @@ from app.workers.screen_capture_worker import ScreenCaptureWorker, list_monitors
 from app.workers.video_worker import VideoWorker
 from config_manager import ConfigManager
 from image_processing import build_binary_mask
+import logging
+import vgamepad as vg
+from pynput import keyboard
+from app.gamepad_emulator import GamepadEmulator
 
 
 def bgr_to_qimage(frame_bgr: np.ndarray) -> QtGui.QImage:
     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
     h, w, ch = frame_rgb.shape
     bytes_per_line = ch * w
-    return QtGui.QImage(frame_rgb.data, w, h, bytes_per_line, QtGui.QImage.Format.Format_RGB888).copy()
+    return QtGui.QImage(frame_rgb.data, w, h, bytes_per_line, QtGui.QImage.Format.Format_RGB888)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -44,13 +48,47 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings = QtCore.QSettings("LaneLab", "LaneDetector")
         self.load_settings()
 
+        self.gamepad = vg.VX360Gamepad()
+        self.gamepad_active = False
+        if self.config.gamepad_enabled:
+            self.gamepad_emulator = GamepadEmulator(self.config.steering.max_steering_deg)
+            self._start_key_listener()
+            self.worker.debugReady.connect(self.handle_debug)
+            self.screenWorker.debugReady.connect(self.handle_debug)
+
+        self.previewLabel.requestReset.connect(self.schedule_reset)
+
+        if self.worker.video_path:
+            self._load_roi_for_source(self.worker.video_path)
+
+    def _start_key_listener(self):
+        self.pressed_keys = set()
+
+        def on_press(key):
+            self.pressed_keys.add(key)
+            if {keyboard.Key.ctrl, keyboard.Key.alt, keyboard.KeyCode.from_char('a')} <= self.pressed_keys:
+                self.toggle_gamepad()
+
+        def on_release(key):
+            self.pressed_keys.discard(key)
+
+        listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+        listener.start()
+
+    def toggle_gamepad(self):
+        self.gamepad_emulator.toggle()
+        if self.gamepad_emulator.active:
+            QtWidgets.QMessageBox.information(self, "Gamepad", "Gamepad emulation activated.")
+        else:
+            QtWidgets.QMessageBox.information(self, "Gamepad", "Gamepad emulation deactivated.")
+
     def _apply_styles(self):
         stylesheet = ""
         try:
             with open("styles.qss", "r") as f:
                 stylesheet = f.read()
         except IOError:
-            print("Warning: styles.qss not found.")
+            logging.warning("styles.qss not found.")
         self.setStyleSheet(stylesheet)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
@@ -65,7 +103,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _reset_overlays_to_defaults(self) -> None:
         fresh_config = self.config_manager.get_profile_config(self.config_manager.active_profile_name)
         if not fresh_config:
-            print(f"Warning: Could not load profile '{self.config_manager.active_profile_name}' for reset.")
+            logging.warning(f"Warning: Could not load profile '{self.config_manager.active_profile_name}' for reset.")
             return
 
         self.config.roi_top_y_pct = fresh_config.roi_top_y_pct
@@ -181,14 +219,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hideRoiButton.setCheckable(True)
         self.hideWarpButton = QtWidgets.QPushButton("Toggle Bird's-Eye")
         self.hideWarpButton.setCheckable(True)
-        self.saveRoiButton = QtWidgets.QPushButton("Save ROI")
-        self.loadRoiButton = QtWidgets.QPushButton("Load ROI")
+        self.saveOverlaysButton = QtWidgets.QPushButton("Save Overlays")
+        self.loadOverlaysButton = QtWidgets.QPushButton("Load Overlays")
+        self.autoWarpButton = QtWidgets.QPushButton("Auto Calibrate Warp")
         overlays_layout.addWidget(QtWidgets.QLabel("Edit Mode:"), 0, 0)
         overlays_layout.addWidget(self.editModeCombo, 0, 1)
         overlays_layout.addWidget(self.hideRoiButton, 1, 0)
         overlays_layout.addWidget(self.hideWarpButton, 1, 1)
-        overlays_layout.addWidget(self.saveRoiButton, 2, 0)
-        overlays_layout.addWidget(self.loadRoiButton, 2, 1)
+        overlays_layout.addWidget(self.saveOverlaysButton, 2, 0)
+        overlays_layout.addWidget(self.loadOverlaysButton, 2, 1)
+        overlays_layout.addWidget(self.autoWarpButton, 3, 0, 1, 2)
         controls_panel.addWidget(overlays_group)
 
         tuning_group = QtWidgets.QGroupBox("Tuning Parameters")
@@ -222,8 +262,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.openButton.clicked.connect(self.handle_open)
         self.playButton.clicked.connect(self.handle_play_pause)
         self.stopButton.clicked.connect(self.handle_stop)
-        self.saveRoiButton.clicked.connect(self.handle_save_roi)
-        self.loadRoiButton.clicked.connect(self.handle_load_roi)
+        self.saveOverlaysButton.clicked.connect(self.handle_save_overlays)
+        self.loadOverlaysButton.clicked.connect(self.handle_load_overlays)
         self.saveConfigButton.clicked.connect(self.handle_save_config)
         self.loadConfigButton.clicked.connect(self.handle_load_config)
         self.profileCombo.currentIndexChanged.connect(self.handle_profile_selected)
@@ -234,6 +274,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.editModeCombo.currentIndexChanged.connect(self.handle_edit_mode)
         self.sourceCombo.currentIndexChanged.connect(self.handle_source_changed)
         self.monitorCombo.currentIndexChanged.connect(self.handle_monitor_changed)
+        self.autoWarpButton.clicked.connect(self.compute_auto_perspective)
         QtCore.QTimer.singleShot(300, self.prompt_auto_roi)
 
         self.cannyLow[0].valueChanged.connect(self.handle_canny_low)
@@ -249,6 +290,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.screenWorker.debugBinaryReady.connect(self.update_binary)
         self.screenWorker.debugWarpReady.connect(self.update_warp)
         self.screenWorker.finished.connect(self.on_finished)
+        self.worker.debugReady.connect(self.handle_debug)
+        self.screenWorker.debugReady.connect(self.handle_debug)
 
         self.previewLabel.requestReset.connect(self.schedule_reset)
 
@@ -413,10 +456,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.schedule_reset()
 
-    def handle_save_roi(self) -> None:
+    def handle_save_overlays(self) -> None:
         source_id = self._get_source_id()
         if not source_id:
-            QtWidgets.QMessageBox.warning(self, "Warning", "No active source to save ROI for.")
+            QtWidgets.QMessageBox.warning(self, "Warning", "No active source to save overlays for.")
             return
 
         roi_dir = Path.cwd() / "rois"
@@ -445,9 +488,9 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
-            QtWidgets.QMessageBox.information(self, "Success", f"ROI saved for {source_id}")
+            QtWidgets.QMessageBox.information(self, "Success", f"Overlays saved for {source_id}")
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to save ROI: {e}")
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to save overlays: {e}")
 
     def _load_roi_for_source(self, source_path: str | None = None) -> bool:
         source_id = Path(source_path).name if source_path else self._get_source_id()
@@ -468,16 +511,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.schedule_reset()
             self.previewLabel.update()
-            print(f"Loaded ROI for {source_id}")
+            logging.info(f"Loaded ROI for {source_id}")
             return True
 
         except Exception as e:
-            print(f"Could not load ROI for {source_id}: {e}")
+            logging.error(f"Could not load ROI for {source_id}: {e}")
             return False
 
-    def handle_load_roi(self) -> None:
+    def handle_load_overlays(self) -> None:
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Load ROI", str(Path.cwd() / "rois"), "JSON (*.json)"
+            self, "Load Overlays", str(Path.cwd() / "rois"), "JSON (*.json)"
         )
         if not path:
             return
@@ -490,10 +533,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.schedule_reset()
             self.previewLabel.update()
-            QtWidgets.QMessageBox.information(self, "Success", "ROI and Warp points loaded.")
+            QtWidgets.QMessageBox.information(self, "Success", "Overlays loaded.")
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to load ROI: {e}")
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to load overlays: {e}")
 
     def _apply_roi_data(self, data: dict):
         roi_data = data.get("roi")
@@ -663,3 +706,104 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_finished(self) -> None:
         pass
+
+    def compute_auto_perspective(self) -> None:
+        source_type = self.sourceCombo.currentText()
+        if source_type != "Video File" or not self.worker.video_path:
+            QtWidgets.QMessageBox.warning(self, "Not Supported", "Auto perspective calibration is only supported for video files.")
+            return
+
+        cap = cv2.VideoCapture(self.worker.video_path)
+        if not cap.isOpened():
+            return
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        mid = max(0, total // 2)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, mid)
+        ok, frame = cap.read()
+        cap.release()
+        if not ok:
+            return
+
+        binary = build_binary_mask(frame, self.config, apply_roi=True)
+
+        h, w = binary.shape[:2]
+
+        lines = cv2.HoughLinesP(binary, 1, np.pi / 180, threshold=50, minLineLength=50, maxLineGap=20)
+        if lines is None:
+            logging.warning("Could not detect lines for calibration.")
+            QtWidgets.QMessageBox.warning(self, "Failed", "Could not detect lines for calibration.")
+            return
+
+        left_lines = []
+        right_lines = []
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            if x2 == x1:
+                continue
+            slope = (y2 - y1) / (x2 - x1)
+            if abs(slope) < 0.5:
+                continue
+            if slope < 0:
+                left_lines.append(line)
+            else:
+                right_lines.append(line)
+
+        def fit_line(lines_list):
+            if not lines_list:
+                return None
+            points = []
+            for line in lines_list:
+                x1, y1, x2, y2 = line[0]
+                points.extend([(x1, y1), (x2, y2)])
+            points = np.array(points, dtype=np.float32)
+            [vx, vy, x, y] = cv2.fitLine(points, cv2.DIST_L2, 0, 0.01, 0.01)
+            if vx == 0:
+                return None
+            slope = vy / vx
+            intercept = y - slope * x
+            return slope, intercept
+
+        left_fit = fit_line(left_lines)
+        right_fit = fit_line(right_lines)
+        if left_fit is None or right_fit is None:
+            QtWidgets.QMessageBox.warning(self, "Failed", "Could not fit lane lines for calibration.")
+            return
+
+        sl, il = left_fit
+        sr, ir = right_fit
+        if sl == sr:
+            QtWidgets.QMessageBox.warning(self, "Failed", "Lane lines are parallel, no vanishing point.")
+            return
+
+        vx = (ir - il) / (sl - sr)
+        vy = sl * vx + il
+
+        top_y = max(0, min(int(vy), int(h * 0.8)))
+        bottom_y = int(h * 0.95)
+
+        def x_at_y(fit, y):
+            s, i = fit
+            return (y - i) / s
+
+        tl_x = int(np.clip(x_at_y(left_fit, top_y), 0, w))
+        tr_x = int(np.clip(x_at_y(right_fit, top_y), 0, w))
+        bl_x = int(np.clip(x_at_y(left_fit, bottom_y), 0, w))
+        br_x = int(np.clip(x_at_y(right_fit, bottom_y), 0, w))
+
+        p = self.config.perspective
+        p.src_top_y_pct = top_y / h
+        p.src_bottom_y_pct = bottom_y / h
+        p.src_top_left_x_pct = tl_x / w
+        p.src_top_right_x_pct = tr_x / w
+        p.src_bottom_left_x_pct = bl_x / w
+        p.src_bottom_right_x_pct = br_x / w
+
+        self.schedule_reset()
+        self.previewLabel.update()
+        QtWidgets.QMessageBox.information(self, "Success", "Perspective src points auto-calibrated and stored in config.")
+
+    @QtCore.Slot(dict)
+    def handle_debug(self, debug: dict):
+        pose = debug.get('pose', {})
+        steering_deg = pose.get('steering_deg', 0.0)
+        self.gamepad_emulator.update_steering(steering_deg)

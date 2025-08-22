@@ -32,12 +32,30 @@ class PerspectiveTransformer:
     def warp(self, frame: np.ndarray) -> np.ndarray:
         self._ensure_matrices(frame.shape)
         h, w = frame.shape[:2]
-        return cv2.warpPerspective(frame, self._M, (w, h), flags=cv2.INTER_LINEAR)
+
+        use_cuda = self.config.cuda_enabled and cv2.cuda.getCudaEnabledDeviceCount() > 0
+
+        if use_cuda:
+            gpu_frame = cv2.cuda_GpuMat()
+            gpu_frame.upload(frame)
+            gpu_warped = cv2.cuda.warpPerspective(gpu_frame, self._M, (w, h), flags=cv2.INTER_LINEAR)
+            return gpu_warped.download()
+        else:
+            return cv2.warpPerspective(frame, self._M, (w, h), flags=cv2.INTER_LINEAR)
 
     def unwarp(self, frame: np.ndarray) -> np.ndarray:
         # Unwarp uses the inverse matrix; assumes same output size as input
         assert self._Minv is not None, "Call warp at least once to initialize matrices"
         h, w = frame.shape[:2]
-        return cv2.warpPerspective(frame, self._Minv, (w, h), flags=cv2.INTER_LINEAR)
+
+        use_cuda = self.config.cuda_enabled and cv2.cuda.getCudaEnabledDeviceCount() > 0
+
+        if use_cuda:
+            gpu_frame = cv2.cuda_GpuMat()
+            gpu_frame.upload(frame)
+            gpu_unwarped = cv2.cuda.warpPerspective(gpu_frame, self._Minv, (w, h), flags=cv2.INTER_LINEAR)
+            return gpu_unwarped.download()
+        else:
+            return cv2.warpPerspective(frame, self._Minv, (w, h), flags=cv2.INTER_LINEAR)
 
 

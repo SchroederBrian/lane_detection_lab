@@ -3,8 +3,8 @@ profiles:
   default:
     canny:
       gaussian_kernel_size: 5
-      high_threshold: 168
-      low_threshold: 50
+      high_threshold: 255
+      low_threshold: 216
     color:
       white_hls_lower:
       - 0
@@ -22,6 +22,7 @@ profiles:
       - 35
       - 255
       - 255
+    cuda_enabled: false
     draw:
       binary_overlay_alpha: 0.35
       binary_overlay_color_bgr:
@@ -46,10 +47,12 @@ profiles:
       show_binary_overlay: false
       show_debug_windows: true
       show_hud_panel: true
+    gamepad_enabled: true
     kalman:
       initial_variance: 1.0
       measurement_variance: 0.01
       process_variance: 0.0001
+    logging_level: INFO
     metric:
       xm_per_px: 0.005285714285714286
       ym_per_px: 0.041666666666666664
@@ -58,18 +61,18 @@ profiles:
       dst_left_x_pct: 0.2
       dst_right_x_pct: 0.8
       dst_top_y_pct: 0.02
-      src_bottom_left_x_pct: 0.1863270777479893
-      src_bottom_right_x_pct: 0.9
-      src_bottom_y_pct: 0.8928571428571428
-      src_top_left_x_pct: 0.4450402144772118
-      src_top_right_x_pct: 0.6085790884718498
-      src_top_y_pct: 0.6285714285714286
-    roi_bottom_left_x_pct: 0.1836461126005362
-    roi_bottom_right_x_pct: 0.8994638069705093
-    roi_bottom_y_pct: 0.8952380952380952
-    roi_top_left_x_pct: 0.44906166219839144
-    roi_top_right_x_pct: 0.6032171581769437
-    roi_top_y_pct: 0.6285714285714286
+      src_bottom_left_x_pct: 0.23212192262602577
+      src_bottom_right_x_pct: 0.8851113716295428
+      src_bottom_y_pct: 0.9993055555555556
+      src_top_left_x_pct: 0.5064478311840562
+      src_top_right_x_pct: 0.593200468933177
+      src_top_y_pct: 0.6041666666666666
+    roi_bottom_left_x_pct: 0.23094958968347012
+    roi_bottom_right_x_pct: 0.8815943728018757
+    roi_bottom_y_pct: 0.9993055555555556
+    roi_top_left_x_pct: 0.5087924970691676
+    roi_top_right_x_pct: 0.5873388042203986
+    roi_top_y_pct: 0.60625
     sliding:
       margin: 20
       minpix: 10

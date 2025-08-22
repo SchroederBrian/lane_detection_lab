@@ -8,11 +8,11 @@
     "bottom_right_x_pct": 0.8994638069705093
   },
   "warp": {
-    "src_top_y_pct": 0.6285714285714286,
-    "src_bottom_y_pct": 0.8928571428571428,
-    "src_top_left_x_pct": 0.4450402144772118,
+    "src_top_y_pct": 0.6267748478701826,
+    "src_bottom_y_pct": 0.8945233265720082,
+    "src_top_left_x_pct": 0.4212328767123288,
     "src_top_right_x_pct": 0.6085790884718498,
-    "src_bottom_left_x_pct": 0.1863270777479893,
+    "src_bottom_left_x_pct": 0.14726027397260272,
     "src_bottom_right_x_pct": 0.9
   }
 }

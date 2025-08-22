@@ -39,8 +39,18 @@ def build_binary_mask(frame_bgr: np.ndarray, config: Config, apply_roi: bool = T
 
     # Canny edges
     gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (config.canny.gaussian_kernel_size, config.canny.gaussian_kernel_size), 0)
-    edges = cv2.Canny(blurred, config.canny.low_threshold, config.canny.high_threshold)
+
+    use_cuda = config.cuda_enabled and cv2.cuda.getCudaEnabledDeviceCount() > 0
+
+    if use_cuda:
+        gpu_gray = cv2.cuda_GpuMat()
+        gpu_gray.upload(gray)
+        gpu_blurred = cv2.cuda_GaussianBlur(gpu_gray, (config.canny.gaussian_kernel_size, config.canny.gaussian_kernel_size), 0)
+        gpu_edges = cv2.cuda_Canny(gpu_blurred, config.canny.low_threshold, config.canny.high_threshold)
+        edges = gpu_edges.download()
+    else:
+        blurred = cv2.GaussianBlur(gray, (config.canny.gaussian_kernel_size, config.canny.gaussian_kernel_size), 0)
+        edges = cv2.Canny(blurred, config.canny.low_threshold, config.canny.high_threshold)
 
     # Combine
     combined = cv2.bitwise_or(color_mask, edges)

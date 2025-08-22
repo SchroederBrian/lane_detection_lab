@@ -130,6 +130,12 @@ class Config:
     roi_bottom_left_x_pct: float = 0.10
     roi_bottom_right_x_pct: float = 0.90
 
+    cuda_enabled: bool = False
+
+    logging_level: str = "INFO"
+
+    gamepad_enabled: bool = False
+
     def compute_roi_polygon(self, frame_shape: Tuple[int, int, int]) -> np.ndarray:
         h, w = frame_shape[:2]
         polygon = np.array([

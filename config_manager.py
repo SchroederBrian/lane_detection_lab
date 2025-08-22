@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, get_type_hints, get_origin, get_args
 
 from config import Config
+import logging
 
 CONFIG_VERSION = "1.0"
 
@@ -100,7 +101,7 @@ class ConfigManager:
                 self.active_profile_name = self.config_data.get("active_profile", "default")
 
             except (yaml.YAMLError, IOError) as e:
-                print(f"Error loading config file: {e}. Creating a new one.")
+                logging.error(f"Error loading config file: {e}. Creating a new one.")
                 self._create_default_config()
         else:
             self._create_default_config()
@@ -132,11 +133,11 @@ class ConfigManager:
             self.active_profile_name = name
             self.config_data["active_profile"] = name
         else:
-            print(f"Profile '{name}' not found.")
+            logging.warning(f"Profile '{name}' not found.")
 
     def create_profile(self, name: str, from_profile: Optional[str] = None):
         if name in self.get_profile_names():
-            print(f"Profile '{name}' already exists.")
+            logging.warning(f"Profile '{name}' already exists.")
             return
 
         if from_profile and from_profile in self.get_profile_names():
@@ -149,7 +150,7 @@ class ConfigManager:
 
     def delete_profile(self, name: str):
         if name == "default":
-            print("Cannot delete the default profile.")
+            logging.warning("Cannot delete the default profile.")
             return
 
         if name in self.get_profile_names():
@@ -160,4 +161,4 @@ class ConfigManager:
 
             self.save()
         else:
-            print(f"Profile '{name}' not found.")
+            logging.warning(f"Profile '{name}' not found.")

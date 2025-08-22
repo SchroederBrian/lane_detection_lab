@@ -3,4 +3,6 @@ numpy>=1.24.0
 PySide6>=6.5.0
 PyYAML
 mss>=9.0.1
-
+scipy
+vgamepad
+pynput
