@@ -1,75 +1,83 @@
-### Lane Detection: Sliding Window + Polyfit + Kalman + Bird's-Eye Warp
+# Lane Lab Py SH
 
-Run on a video file and optionally save output.
+## Description
 
-#### Setup
+Lane Detection Lab is a Python-based application for real-time lane detection. It uses techniques like sliding window, polynomial fitting, Kalman filtering, and bird's-eye view perspective transformation. The app supports processing video files or live screen captures, with a graphical user interface for configuration, live parameter tuning, and visualization. It also includes gamepad emulation to simulate steering inputs based on detected lane curvature, useful for applications like game automation (e.g., Euro Truck Simulator).
+
+## Features
+
+- Real-time lane detection with binary masking, perspective warping, and lane fitting
+- GUI built with PySide6 for interactive preview, parameter sliders, ROI selection, and diagnostic views
+- Configurable via YAML with multiple profiles (e.g., default, night, rain) and persistence
+- Screen capture support for live input from monitors
+- Gamepad emulation using vgamepad for automated steering
+- Kalman filter for smooth lane tracking
+- Video processing pipeline with optional output saving
+- Per-video ROI and settings persistence
+
+## Installation
+
+Create a virtual environment and install dependencies:
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate
 pip install -r requirements.txt
 ```
-
-#### Usage (CLI)
-
-```bash
-python app.py --video path/to/input.mp4 --save output.mp4
-```
-
-Press `q` or `Esc` to quit.
-
-You can edit thresholds, ROI, and perspective points in `config.py`.
-
-#### Usage (GUI)
-
-```bash
-python gui.py
-```
-
-In the GUI, open a video, press Play/Pause, and tune parameters live. The top shows the composited output; bottom row shows binary and warped-binary diagnostics.
-
-## New Features in this version
-- **Config system upgrade (profiles + persistence):** Load/save Config to YAML/TOML with versioning, validation, and profile selection (e.g., default, night, rain). Allow CLI overrides and GUI Save/Load for the entire config (not just ROI).
-- **Persist GUI state and ROI per source:** Use QSettings to remember last video, sliders, window size, and source. Auto-load per-video/per-monitor ROI and warp points; add a “Load ROI…” next to “Save ROI…” in gui.py.
 
 ## Usage
 
-### GUI Mode
+Launch the GUI application:
 
 ```bash
-python gui.py
+python app.py
 ```
 
-In the GUI, open a video, press Play/Pause, and tune parameters live. The top shows the composited output; bottom row shows binary and warped-binary diagnostics.
+In the GUI:
+- Use the menu or buttons to open a video file or select a screen for capture.
+- Adjust detection parameters using the sliders in the config panel.
+- Select a config profile or save/load configurations.
+- Enable gamepad emulation to send steering inputs based on lane detection.
+- Play/pause the processing and view the output with overlaid lanes and diagnostics.
+- Press 'q' or Esc to quit previews if needed.
 
-To run the command-line processing script:
-
-```bash
-python app.py --video /path/to/your/video.mp4 --save /path/to/output.mp4 --profile night --draw.show_hud_panel=False
-```
-
-- `--video`: Path to the input video file.
-- `--save`: Optional path to save the processed video.
-- `--profile`: Optional. The configuration profile to use (e.g., `default`, `night`).
-- You can also override any config parameter using the `--key=value` syntax.
-
-## Configuration
-The application now uses a `config.yaml` file to manage settings. This file is created automatically on the first run.
-
-- **Profiles:** You can create and manage different configuration profiles for various conditions (e.g., `day`, `night`, `rain`).
-- **Persistence:** All settings, including UI layout and selected profiles, are persisted between sessions.
+Configuration can be edited directly in `config.yaml` or through the GUI. ROI points are saved per video/source in the `rois/` directory.
 
 ## Dependencies
-- Python 3.8+
-- OpenCV (`opencv-python-headless`)
-- NumPy
-- PySide6 (for the GUI)
-- PyYAML
-- mss (for screen capture)
 
-Install the dependencies using:
-```bash
-pip install -r requirements.txt
-```
+- opencv-python >= 4.8.0
+- numpy >= 1.24.0
+- PySide6 >= 6.5.0
+- PyYAML
+- mss >= 9.0.1
+- scipy
+- vgamepad
+- pynput
+
+These are listed in `requirements.txt` for easy installation.
+
+## Configuration
+
+The app uses `config.yaml` for settings, managed by `config_manager.py`. It supports:
+- Multiple profiles for different conditions.
+- Versioning and validation of config files.
+- GUI persistence for window state, last used video, etc.
+
+Edit `config.yaml` directly or use the GUI to tune and save.
+
+## Development
+
+- Main entry: `app.py`
+- GUI: `app/main_window.py`
+- Pipeline: `app/pipeline.py`
+- Workers: `app/workers/` for video and screen processing
+- Core logic: `lane_detector.py`, `kalman.py`, `perspective.py`, `image_processing.py`
+- Tests: `tests/` including `test_gamepad.py`
+
+For contributions, see the code and open issues/PRs.
+
+## Test Videos
+
+Sample videos are in `videos/` for testing lane detection.
 
 
