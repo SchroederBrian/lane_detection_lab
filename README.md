@@ -1,4 +1,4 @@
-# Lane Lab Py SH
+# Lane Detection Lab
 
 ## Description
 
